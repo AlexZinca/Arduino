@@ -1,0 +1,148 @@
+//SLAVE
+
+#include <LiquidCrystal.h>
+#define MISO 12
+#define MOSI 11
+#define PIN_CLOCK 13
+#define CHIP_SELECT 10
+
+#define LedRosu 5
+#define LedGalben 4
+#define LedVerde 3
+#define LedAlbastru 2
+
+int receivedTemperature;
+int tempSet;
+int humidity;
+int secunde;
+bool newDataReceived = false;
+
+// Define LCD pins
+const byte RS = 7, EN = 6, DB4 = 5, DB5 = 4, DB6 = 8, DB7 = 9;
+
+// Initialize the LCD
+LiquidCrystal lcd(RS, EN, DB4, DB5, DB6, DB7);
+
+void setup_pins() {
+  DDRB &= ~((1 << 2) | (1 << 3) | (1 << 5)); // MOSI, PIN_CLOCK, CHIP_SELECT as input
+  DDRB |= (1 << 4); // MISO as output
+
+  DDRC=0xFF;
+}
+
+bool readPin(int pin) {
+  return PINB & (1 << (pin - 8));
+}
+
+byte receive_byte() {
+  byte receivedByte = 0;
+  for (int i = 0; i < 8; i++) {
+    while (!readPin(PIN_CLOCK)); // Wait for clock to go high
+    receivedByte |= readPin(MOSI) << (7 - i);
+    while (readPin(PIN_CLOCK)); // Wait for clock to go low
+  }
+  return receivedByte;
+}
+
+
+void receive_data() {
+  byte highByte, lowByte;
+
+  if (!readPin(CHIP_SELECT)) {
+    highByte = receive_byte();
+    lowByte = receive_byte();
+    receivedTemperature = (highByte << 8) | lowByte;
+
+    highByte = receive_byte();
+    lowByte = receive_byte();
+    tempSet = (highByte << 8) | lowByte;
+    
+    highByte = receive_byte();
+    lowByte = receive_byte();
+    humidity = (highByte << 8) | lowByte;
+    
+    highByte = receive_byte();
+    lowByte = receive_byte();
+    secunde = (highByte << 8) | lowByte;
+    
+    newDataReceived = true;
+  }
+}
+
+void setup() {
+  Serial.begin(9600);
+  setup_pins();
+  lcd.begin(16, 2); // Initialize the LCD
+}
+
+void loop() {
+  receive_data();
+
+  if (newDataReceived) {
+    
+    if(receivedTemperature>=15 && receivedTemperature<=18 ) {//legume tuberculifer 15-18
+     	 PORTC|=(1<<LedRosu);
+     	 PORTC&=~(1<<LedAlbastru);
+     	 PORTC&=~(1<<LedVerde);
+     	 PORTC&=~(1<<LedGalben);
+    }else 
+      if(receivedTemperature>=25 && receivedTemperature<=30) {//legume bulboase  25-30
+    	 PORTC|=(1<<LedAlbastru);	
+      	 PORTC&=~(1<<LedRosu);
+     	 PORTC&=~(1<<LedVerde);
+      	 PORTC&=~(1<<LedGalben);
+    }else 
+      if(receivedTemperature>=10 && receivedTemperature<=12) {//legume varzoase 10-12
+    	 PORTC|=(1<<LedVerde);	
+      	 PORTC&=~(1<<LedAlbastru);
+      	 if(receivedTemperature==10){//legume radacinoase 10 grade
+           PORTC|=(1<<LedGalben);
+      	 }
+      	 else{
+      	   PORTC&=~(1<<LedGalben);
+         }
+     	 PORTC&=~(1<<LedRosu);
+      	 
+    }else {
+      	 PORTC&=~(1<<LedRosu);
+      	 PORTC&=~(1<<LedAlbastru);
+     	 PORTC&=~(1<<LedVerde);
+      	 PORTC&=~(1<<LedGalben);
+    }
+    
+    lcd.clear();
+    lcd.print("TC: ");
+    lcd.setCursor(4, 0);
+    lcd.print(receivedTemperature);
+    lcd.print(char(176));
+    lcd.print("C");
+	Serial.print("Received current temp: ");
+    Serial.print(receivedTemperature);
+    Serial.print(char(176));
+    Serial.println("C");
+    
+    lcd.setCursor(0, 1);
+    lcd.print("TS: ");
+    lcd.setCursor(4, 1);
+    lcd.print(tempSet);
+    lcd.print(char(176));
+    lcd.print("C");
+    Serial.print("Received set temp: ");
+    Serial.print(tempSet);
+    Serial.print(char(176));
+    Serial.println("C");
+    
+    lcd.setCursor(11, 0);
+    lcd.print("U: ");
+    lcd.setCursor(13, 0);
+    lcd.print(humidity);
+    Serial.print("Received humidity: ");
+    Serial.print(humidity);
+    
+    Serial.print("seconds ");
+    Serial.print(secunde);
+ 
+
+    newDataReceived = false;
+  }
+}
