@@ -1,4 +1,4 @@
-MASTER 
+//MASTER 
 #define MISO 12
 #define MOSI 11
 #define PIN_CLOCK 13
